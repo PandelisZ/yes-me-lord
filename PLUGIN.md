@@ -5,6 +5,7 @@ version: "0.1.0"
 events:
   - external_access
   - subagent_started
+  - questionnaire
 ---
 
 # yes-me-lord
