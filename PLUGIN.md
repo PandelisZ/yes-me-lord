@@ -10,4 +10,6 @@ events:
 
 # yes-me-lord
 
-Speaks a message via macOS `say` when specific Cosine plugin events occur.
+Speaks messages for configured Cosine events.
+
+For `questionnaire` events, if `ELLEVEN_LABS_API` is set, the plugin uses ElevenLabs voice `NOpBlnGInO9m6vDvFkFC`. Otherwise it uses macOS `say`.

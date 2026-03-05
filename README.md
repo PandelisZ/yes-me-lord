@@ -12,6 +12,20 @@ A Cosine CLI plugin that speaks honorific voice lines on specific events.
 - macOS (uses the built-in `say` command)
 - Cosine CLI plugin support
 
+## Questionnaire voice configuration
+
+For `questionnaire` events, the plugin can use ElevenLabs text-to-speech.
+
+- Set `ELLEVEN_LABS_API` in your environment to enable ElevenLabs.
+- Voice ID is fixed to `NOpBlnGInO9m6vDvFkFC`.
+- If the key is not set (or ElevenLabs fails), the plugin falls back to macOS `say -v Victoria`.
+
+Example:
+
+```bash
+export ELLEVEN_LABS_API="your_api_key"
+```
+
 ## Local setup
 
 1. Create the plugin directory if needed:
