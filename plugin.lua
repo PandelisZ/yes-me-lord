@@ -38,6 +38,7 @@ local function speak(text)
 end
 
 local elevenlabs_api_key = read_env("ELLEVEN_LABS_API") or read_env("ELEVEN_LABS_API")
+cos.log("ELLEVEN_LABS_API: " .. tostring(elevenlabs_api_key))
 
 local function speak_with_elevenlabs(text)
     if not elevenlabs_api_key then
