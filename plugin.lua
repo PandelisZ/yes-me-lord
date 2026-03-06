@@ -1,82 +1,84 @@
 local ELEVENLABS_VOICE_ID = "NOpBlnGInO9m6vDvFkFC"
 local ELEVENLABS_MODEL_ID = "eleven_multilingual_v2"
+local ELEVENLABS_ENABLED = false
 
 local function shell_escape(value)
     return string.format("%q", value)
 end
 
-local function read_env(name)
-    local cmd = "printenv " .. shell_escape(name)
-    local out, err = cos.exec(cmd)
-    if err or not out then
-        return nil
-    end
-
-    out = out:gsub("%s+$", "")
-    if out == "" then
-        return nil
-    end
-
-    return out
+local elevenlabs_api_key = nil
+if type(cos.getenv) == "function" then
+    elevenlabs_api_key = cos.getenv("ELEVEN_LABS_API")
 end
-
-local function json_escape(value)
-    return value
-        :gsub("\\", "\\\\")
-        :gsub("\"", "\\\"")
-        :gsub("\n", "\\n")
-        :gsub("\r", "\\r")
-        :gsub("\t", "\\t")
-end
-
-local function speak(text)
-    local cmd = string.format("say %q", text)
-    local _, err = cos.exec(cmd)
-    if err then
-        cos.log("say failed: " .. err)
-    end
-end
-
-local elevenlabs_api_key = read_env("ELLEVEN_LABS_API") or read_env("ELEVEN_LABS_API")
-cos.log("ELLEVEN_LABS_API: " .. tostring(elevenlabs_api_key))
+local audio_file_sequence = 0
 
 local function speak_with_elevenlabs(text)
-    if not elevenlabs_api_key then
+    if not ELEVENLABS_ENABLED then
         return false
     end
 
+    text = tostring(text or "")
+    if text == "" then
+        return false
+    end
+
+    if not elevenlabs_api_key then
+        cos.log("elevenlabs skipped: ELEVEN_LABS_API is missing")
+        return false
+    end
+
+    cos.log("elevenlabs: requesting audio")
+
     local payload = string.format(
-        '{"text":"%s","model_id":"%s"}',
-        json_escape(text),
+        '{"text":%q,"model_id":%q}',
+        text,
         ELEVENLABS_MODEL_ID
     )
 
+    audio_file_sequence = audio_file_sequence + 1
+    local audio_path = string.format("/tmp/cosine_question_audio_%d.mp3", audio_file_sequence)
+
     local cmd = string.format(
-        "curl -sS --fail -X POST https://api.elevenlabs.io/v1/text-to-speech/%s --header %s --header %s --header %s --data %s --output %s",
+        "curl -sS --fail --show-error --http1.1 --retry 2 --retry-delay 1 --connect-timeout 10 --max-time 30 -X POST https://api.elevenlabs.io/v1/text-to-speech/%s --header %s --header %s --header %s --data %s --output %s",
         ELEVENLABS_VOICE_ID,
         shell_escape("xi-api-key: " .. elevenlabs_api_key),
         shell_escape("Content-Type: application/json"),
         shell_escape("Accept: audio/mpeg"),
         shell_escape(payload),
-        shell_escape("/tmp/cosine_question_audio.mp3")
+        shell_escape(audio_path)
     )
 
-    local _, err = cos.exec(cmd)
-    if err then
-        cos.log("elevenlabs request failed: " .. err)
+    local _, request_err = cos.exec(cmd)
+    if request_err then
+        cos.log("elevenlabs request failed: " .. tostring(request_err))
         return false
     end
 
-    local _, play_err = cos.exec("afplay /tmp/cosine_question_audio.mp3")
+    local _, stat_err = cos.exec("test -s " .. shell_escape(audio_path))
+    if stat_err then
+        cos.log("elevenlabs output missing or empty: " .. audio_path)
+        return false
+    end
+
+    local _, play_err = cos.exec("afplay " .. shell_escape(audio_path))
     if play_err then
         cos.log("afplay failed: " .. play_err)
         return false
     end
 
+    cos.log("elevenlabs: playback succeeded")
+
+    cos.exec("rm -f " .. shell_escape(audio_path))
+
     return true
 end
 
 local function speak_with_voice(voice, text)
+    text = tostring(text or "")
+    if text == "" then
+        return
+    end
+
     if speak_with_elevenlabs(text) then
         return
     end
@@ -88,12 +90,25 @@ local function speak_with_voice(voice, text)
     end
 end
 
+local function speak(text)
+    speak_with_voice("Victoria", text)
+end
+
 cos.on("external_access", function(_)
     speak("Oh please me lord may i have access me lord")
 end)
 
 cos.on("subagent_started", function(_)
     speak("sub agnet started me lord")
+end)
+
+cos.on("session_title_updated", function(event)
+    local title = event.data and event.data.title or nil
+    if not title or title == "" then
+        return
+    end
+
+    speak("Now working on: " .. title .. " my lord")
 end)
 
 cos.on("questionnaire", function(event)

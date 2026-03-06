@@ -5,6 +5,7 @@ version: "0.1.0"
 events:
   - external_access
   - subagent_started
+  - session_title_updated
   - questionnaire
 ---
 
